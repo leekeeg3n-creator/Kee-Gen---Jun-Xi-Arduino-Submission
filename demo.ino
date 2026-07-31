@@ -20,18 +20,19 @@ void loop() {
 
   cout << "Are you ready for the quiz? If yes, please press the yellow button!";
 
-  if (digitalRead(K2 == 0))
-  {
-    cout << "Let's get started!";
-  }
-  else
-  {
-    cout << "What should we do when our mobile devices have no battery?"
-    cout << "We should throw away and buy a new one.\n";
-    cout << "yes(yellow button) or no (blue_button)";
-  }
+ while (digitalRead(K2 != 0))
+{
+  cout << "Please press the yellow button to get ready.";
+}
 
-  if (digitalRead () )
+digitalWrite(BLUE_LED, HIGH);
+cout << "You are now in the normal level (BLUE LED TURNED ON)\n";
+cout << "Let's get started!\n";
+cout << "1) Should you tell someone your banking OTP if they ask over the phone?\n";
+cout << "     Yellow Button - Yes\n";
+cout << "     Blue Button - No\n";
+
+if (yellow_button == 0)
 
   
 
