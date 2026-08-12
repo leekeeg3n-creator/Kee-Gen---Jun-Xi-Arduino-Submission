@@ -1,3 +1,15 @@
+//Li junxi, P2621423, DEEE/FT/1B/22, Group 3
+//Lee kee gen, P2621762, 
+
+
+//
+
+
+
+
+
+
+
 #include "RichShieldTM1637.h"
 
 #define BUZZER    3
@@ -10,7 +22,6 @@
 #define CLK      10
 #define DIO      11
 
-//music  is done by GEMINI
 #define C4 262
 #define D4 294
 #define E4 330
@@ -28,8 +39,7 @@
 
 TM1637 disp(CLK, DIO);
 int marks = 0;
-
-//JUNXI's part
+int totalQuestions = 5;
 
 char* normalQuestions[3] = {
   "Q1: can a mobile phone can call for help when facing diffciulty?",
@@ -38,14 +48,12 @@ char* normalQuestions[3] = {
 };
 int normalAnswers[3] = {1, 0, 1};
 
-//KEE GEN's part
 char* diffQuestions[2] = {
   "Q4: when receiving a random message, we should talk to them and follow their instruction?",
   "Q5: we should not expose our home address and personal ID and bank infomation online?"
 };
 int diffAnswers[2] = {0, 1};
 
-//we dont know how to do the music so the music part all done by GEMINI
 void myTone(int pin, int frequency, int durationMs) {
   int delayValue = 500000 / frequency;
   int numCycles = (frequency / 10) * durationMs / 100;
@@ -106,8 +114,49 @@ void victorySong() {
   }
 }
 
-int getAnswer() {
-  while (1) {
+void showDisplay(int timeLeft, int score) {
+  int displayValue = (timeLeft * 100) + score;
+  disp.display(displayValue);
+}
+
+void startBeepSequence() {
+  Serial.println(F("Starting in 3..."));
+  digitalWrite(LED_RED, HIGH);
+  myTone(BUZZER, C4, 150);
+  delay(800);
+  digitalWrite(LED_RED, LOW);
+
+  Serial.println(F("2..."));
+  digitalWrite(LED_YELLOW, HIGH);
+  myTone(BUZZER, E4, 150);
+  delay(800);
+  digitalWrite(LED_YELLOW, LOW);
+
+  Serial.println(F("1... GO!"));
+  digitalWrite(LED_GREEN, HIGH);
+  myTone(BUZZER, G5, 300);
+  delay(500);
+  digitalWrite(LED_GREEN, LOW);
+}
+
+int getAnswerWithMusic(int timeoutSeconds) {
+  unsigned long startTime = millis();
+  unsigned long timeoutMs = (unsigned long)timeoutSeconds * 1000;
+  unsigned long lastNoteTime = 0;
+  
+  int timerNotes[] = {C4, E4, G4, E4};
+  int noteIndex = 0;
+
+  while (millis() - startTime < timeoutMs) {
+    int secondsLeft = timeoutSeconds - ((millis() - startTime) / 1000);
+    showDisplay(secondsLeft, marks);
+
+    if (millis() - lastNoteTime >= 400) {
+      myTone(BUZZER, timerNotes[noteIndex], 60);
+      noteIndex = (noteIndex + 1) % 4;
+      lastNoteTime = millis();
+    }
+
     if (digitalRead(K2_YELLOW) == 0) {
       delay(50);
       while (digitalRead(K2_YELLOW) == 0);
@@ -119,6 +168,10 @@ int getAnswer() {
       return 0;
     }
   }
+  
+  showDisplay(0, marks);
+  Serial.println(F("Time's up!"));
+  return -1;
 }
 
 void checkAnswer(int userAnswer, int correctAnswer) {
@@ -127,13 +180,13 @@ void checkAnswer(int userAnswer, int correctAnswer) {
     digitalWrite(LED_GREEN, HIGH);
     
     marks += 1;
-    disp.display(marks);
+    showDisplay(0, marks);
     
     soundWin();
     
     digitalWrite(LED_GREEN, LOW);
   } else {
-    Serial.println(F("-> Incorrect!"));
+    Serial.println(F("-> Incorrect or Timed Out!"));
     digitalWrite(LED_RED, HIGH);
     
     soundWrong();
@@ -142,11 +195,27 @@ void checkAnswer(int userAnswer, int correctAnswer) {
   }
 }
 
+void calculateResults() {
+  int percentage = (marks * 100) / totalQuestions;
+  
+  Serial.println();
+  Serial.println(F("=============================="));
+  Serial.print(F("Final Score: "));
+  Serial.print(marks);
+  Serial.print(F(" / "));
+  Serial.println(totalQuestions);
+  
+  Serial.print(F("Accuracy: "));
+  Serial.print(percentage);
+  Serial.println(F("%"));
+  Serial.println(F("=============================="));
+}
+
 void setup() {
   Serial.begin(9600);
   
   disp.init();
-  disp.display(marks);
+  showDisplay(20, marks);
 
   pinMode(BUZZER, OUTPUT);
   pinMode(LED_RED, OUTPUT);
@@ -160,21 +229,20 @@ void setup() {
 
 void loop() {
   marks = 0;
-  disp.display(marks);
+  showDisplay(20, marks);
   digitalWrite(LED_BLUE, LOW);
   digitalWrite(LED_YELLOW, LOW);
 
-  Serial.println(F("Are you ready?"));
+  Serial.println(F("Press Yellow Button to Start Quiz..."));
   
   while (digitalRead(K2_YELLOW) != 0);
   while (digitalRead(K2_YELLOW) == 0);
 
-  Serial.println(F("Let's get started!"));
-  delay(1000);
+  startBeepSequence();
 
   do {
     marks = 0;
-    disp.display(marks);
+    showDisplay(20, marks);
 
     digitalWrite(LED_BLUE, HIGH);
     digitalWrite(LED_YELLOW, LOW);
@@ -184,8 +252,8 @@ void loop() {
 
     for (int i = 0; i < 3; i++) {
       Serial.print(normalQuestions[i]);
-      Serial.println(F(" (Yellow = YES, Blue = NO)"));
-      int userAns = getAnswer();
+      Serial.println(F(" (Yellow = YES, Blue = NO) [20s limit]"));
+      int userAns = getAnswerWithMusic(20);
       checkAnswer(userAns, normalAnswers[i]);
     }
 
@@ -209,21 +277,19 @@ void loop() {
 
   for (int i = 0; i < 2; i++) {
     Serial.print(diffQuestions[i]);
-    Serial.println(F(" (Yellow = YES, Blue = NO)"));
-    int userAns = getAnswer();
+    Serial.println(F(" (Yellow = YES, Blue = NO) [20s limit]"));
+    int userAns = getAnswerWithMusic(20);
     checkAnswer(userAns, diffAnswers[i]);
   }
 
+  calculateResults();
+
   if (marks == 5) {
-    Serial.println();
-    Serial.println(F("CONGRATULATIONS! You got 5/5!"));
-    
+    Serial.println(F("GRADE: EXCELLENT (PERFECT SCORE)"));
     victorySong();
-    
     delay(3000);
   } else {
-    Serial.println();
-    Serial.println(F("Failed Difficult Level! Resetting to 0 and restarting entire quiz..."));
+    Serial.println(F("GRADE: FAILED (Resetting to start...)"));
     delay(2000);
   }
 }
